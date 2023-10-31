@@ -1,10 +1,8 @@
 require 'sinatra'
-require 'puma'
 
-configure do
-  set :server, :puma 
-end
-
+# Define a route for /hello
 get '/hello' do
-  "Hello World"
+  'hello world'
 end
+
+set :port, 4567
