@@ -1,0 +1,68 @@
+pipeline {
+    agent {
+        docker {
+            image 'custom image'  // Custom docker image which has azure login configured, terraform installed.
+        }
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout your source code repository
+                checkout scm
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                script {
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Copy Script to Azure VM') {
+            steps {
+                script {
+                    // Get all the below required variables from variables.tf and the provisioned ip from terraform.tfstate file. A library can be written for this
+                    def azureResourceGroupName = ''
+                    def azureVMIP = ''
+                    def azureVMUser = ''
+                    def localScriptPath = './scripts/deploy.sh'
+                    def remoteScriptPath = ''
+
+                    // Use SCP to copy the script to the Azure VM
+                    sh "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /path/to/your/ssh/key.pem ${localScriptPath} ${azureVMUser}@${azureVMIP}:${remoteScriptPath}"
+                }
+            }
+        }
+
+        stage('Run Application on Azure VM') {
+            steps {
+                script {
+                    // SSH into the Azure VM and execute the script
+                    def azureVMUser = ''
+                    def azureVMName = ''
+                    def remoteScriptPath = ''
+
+                    sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /path/to/your/ssh/key.pem ${azureVMUser}@${azureVMName} 'bash -s' < ${remoteScriptPath}"
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            emailext (
+                subject: 'Build Failed', body: "Pipeline ${currentBuild.result}: ${env.JOB_NAME} (${env.BUILD_NUMBER})", to: "example@email.com"
+            )
+        }
+        aborted {
+                emailext (
+                    subject: 'Build has been aborted', body: "Pipeline ${currentBuild.result}: ${env.JOB_NAME} (${env.BUILD_NUMBER})", to: "example@email.com"
+            )
+        }
+    }
+
+}
